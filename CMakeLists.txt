@@ -14,9 +14,9 @@ pico_sdk_init()
 
 add_executable(toyless
     src/main.c
-    src/core/iсc.c
-    # src/core/core1_main.c
-    # src/core/log.c
+    src/core/icc.c
+    src/core/core1_main.c
+    src/core/log.c
 )
 
 target_link_libraries(toyless
