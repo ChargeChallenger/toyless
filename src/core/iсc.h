@@ -1,5 +1,5 @@
-#ifndef TOYLESS_IPC_H
-#define TOYLESS_IPC_H
+#ifndef TOYLESS_IСC_H
+#define TOYLESS_IСC_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -30,12 +30,12 @@ typedef struct {
     uint8_t block_data[16];
 } portal_event_t;
 
-void ipc_init(void);
+void iсc_init(void);
 
-bool ipc_send_cmd(const portal_cmd_t *cmd);
-bool ipc_poll_cmd(portal_cmd_t *out_cmd);
+bool iсc_send_cmd(const portal_cmd_t *cmd);
+bool iсc_poll_cmd(portal_cmd_t *out_cmd);
 
-bool ipc_send_event(const portal_event_t *evt);
-bool ipc_poll_event(portal_event_t *out_evt);
+bool iсc_send_event(const portal_event_t *evt);
+bool iсc_poll_event(portal_event_t *out_evt);
 
 #endif 
