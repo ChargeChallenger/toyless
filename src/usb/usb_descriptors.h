@@ -5,7 +5,7 @@
 #include "tusb.h"
 
 // Аппаратные идентификаторы оригинальной базы Disney Infinity для Xbox 360
-#define PORTAL_USB_VID  0x23C6 
+#define PORTAL_USB_VID  0x24C6 
 #define PORTAL_USB_PID  0xFA00
 #define PORTAL_USB_REV  0x0100
 
