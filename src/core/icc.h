@@ -1,5 +1,5 @@
-#ifndef TOYLESS_IСC_H
-#define TOYLESS_IСC_H
+#ifndef TOYLESS_ICC_H
+#define TOYLESS_ICC_H
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -38,4 +38,4 @@ bool icc_poll_cmd(portal_cmd_t *out_cmd);
 bool icc_send_event(const portal_event_t *evt);
 bool icc_poll_event(portal_event_t *out_evt);
 
-#endif
+#endif // TOYLESS_ICC_H

@@ -5,10 +5,13 @@
 #include "pico/cyw43_arch.h"
 
 void core1_entry(void) {
-    log_printf("[Core 1]: Second core thread initialized\n");
+    log_printf("[Core 1] Core 1 thread started\n");
 
-    if (cyw43_arch_init()) {
-        log_printf("[Core 1]: CYW43 initialization error\n");
+    bool cyw43_ready = false;
+    if (cyw43_arch_init() == 0) {
+        cyw43_ready = true;
+    } else {
+        log_printf("[Core 1] Failed to initialize CYW43\n");
     }
 
     uint32_t last_cmd_time = 0;
@@ -18,7 +21,7 @@ void core1_entry(void) {
         portal_event_t evt;
         if (icc_poll_event(&evt)) {
             if (evt.type == PORTAL_EVT_FIGURE_DIRTY) {
-                log_printf("[Core 1]: Event: slot %d, changed block %d\n", evt.slot, evt.block_index);
+                log_printf("[Core 1] Event: slot %d, modified block %d\n", evt.slot, evt.block_index);
             }
         }
 
@@ -31,12 +34,16 @@ void core1_entry(void) {
                 .slot = demo_slot,
             };
             icc_send_cmd(&cmd);
-            log_printf("[Core 1]: Send command SET_FIGURE for slot %d\n", demo_slot);
+            log_printf("[Core 1] Sent command SET_FIGURE for slot %d\n", demo_slot);
 
             demo_slot = (demo_slot + 1) % 9;
 
-            static bool led = false;
-            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, (led = !led));
+            if (cyw43_ready) {
+                static bool led = false;
+                cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, (led = !led));
+            }
         }
+
+        sleep_ms(10);
     }
 }

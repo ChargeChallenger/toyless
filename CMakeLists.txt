@@ -17,16 +17,25 @@ add_executable(toyless
     src/core/icc.c
     src/core/core1_main.c
     src/core/log.c
+    src/usb/usb_descriptors.c
+    src/usb/usb_transport.c
+)
+
+target_include_directories(toyless PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/src
+    ${CMAKE_CURRENT_LIST_DIR}/src/usb
 )
 
 target_link_libraries(toyless
     pico_stdlib
     pico_multicore
     pico_util
+    pico_unique_id
+    tinyusb_device
     pico_cyw43_arch_none
 )
-    
+
 pico_enable_stdio_uart(toyless 1)
 pico_enable_stdio_usb(toyless 0)
-    
+
 pico_add_extra_outputs(toyless)
