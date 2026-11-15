@@ -20,7 +20,8 @@ typedef struct {
 
 typedef enum {
     PORTAL_EVT_FIGURE_DIRTY,
-    PORTAL_EVT_STATUS_CHANGE
+    PORTAL_EVT_STATUS_CHANGE,
+    PORTAL_EVT_AUTH_SUCCESS
 } portal_event_type_t;
 
 typedef struct {

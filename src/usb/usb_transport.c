@@ -1,6 +1,7 @@
 #include <string.h>
 #include "usb_transport.h"
 #include "usb_descriptors.h"
+#include "auth/xsm3_service.h"
 #include "core/log.h"
 #include "tusb.h"
 #include "device/usbd_pvt.h"
@@ -39,7 +40,10 @@ bool usb_transport_send(const uint8_t *packet32) {
 // ---------------------------------------------------------------------------
 
 static void xinput_init(void) {}
-static void xinput_reset(uint8_t rhport) { (void)rhport; }
+static void xinput_reset(uint8_t rhport) {
+    (void)rhport;
+    xsm3_service_init();
+}
 
 static uint16_t xinput_open(uint8_t rhport, tusb_desc_interface_t const *desc_intf, uint16_t max_len) {
     TU_VERIFY(desc_intf->bInterfaceClass == 0xFF &&
@@ -72,7 +76,11 @@ static bool xinput_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_r
     (void)rhport;
     (void)stage;
     (void)request;
-    return false; // Handled by tud_vendor_control_xfer_cb in Phase 3 (XSM3)
+    return false;
+}
+
+bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const *request) {
+    return xsm3_service_handle_control_xfer(rhport, stage, request);
 }
 
 static bool xinput_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t result, uint32_t xferred_bytes) {

@@ -22,6 +22,8 @@ void core1_entry(void) {
         if (icc_poll_event(&evt)) {
             if (evt.type == PORTAL_EVT_FIGURE_DIRTY) {
                 log_printf("[Core 1] Event: slot %d, modified block %d\n", evt.slot, evt.block_index);
+            } else if (evt.type == PORTAL_EVT_AUTH_SUCCESS) {
+                log_printf("[Core 1] Event: PORTAL_EVT_AUTH_SUCCESS received\n");
             }
         }
 

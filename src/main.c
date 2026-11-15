@@ -5,6 +5,7 @@
 #include "core/icc.h"
 #include "core/log.h"
 #include "core/core1_main.h"
+#include "auth/xsm3_service.h"
 #include "usb/usb_transport.h"
 
 int main(void) {
@@ -18,15 +19,19 @@ int main(void) {
     // 1. Initialize Inter-Core Communication
     icc_init();
 
-    // 2. Initialize USB transport
+    // 2. Initialize XSM3 authentication service
+    log_printf("[Core 0] Initializing XSM3 service...\n");
+    xsm3_service_init();
+
+    // 3. Initialize USB transport
     log_printf("[Core 0] Initializing USB transport...\n");
     usb_transport_init();
 
-    // 3. Launch Core 1 (Wi-Fi, storage, web)
+    // 4. Launch Core 1 (Wi-Fi, storage, web)
     log_printf("[Core 0] Launching Core 1...\n");
     multicore_launch_core1(core1_entry);
 
-    // 4. Core 0 real-time loop
+    // 5. Core 0 real-time loop
     while (true) {
         usb_transport_task();
 

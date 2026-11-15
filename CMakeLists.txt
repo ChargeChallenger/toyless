@@ -12,11 +12,14 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 pico_sdk_init()
 
+add_subdirectory(lib/libxsm3)
+
 add_executable(toyless
     src/main.c
     src/core/icc.c
     src/core/core1_main.c
     src/core/log.c
+    src/auth/xsm3_service.c
     src/usb/usb_descriptors.c
     src/usb/usb_transport.c
 )
@@ -24,6 +27,7 @@ add_executable(toyless
 target_include_directories(toyless PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/src
     ${CMAKE_CURRENT_LIST_DIR}/src/usb
+    ${CMAKE_CURRENT_LIST_DIR}/src/auth
 )
 
 target_link_libraries(toyless
@@ -31,6 +35,8 @@ target_link_libraries(toyless
     pico_multicore
     pico_util
     pico_unique_id
+    pico_rand
+    libxsm3
     tinyusb_device
     pico_cyw43_arch_none
 )
