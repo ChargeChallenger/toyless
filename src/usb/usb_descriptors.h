@@ -2,10 +2,11 @@
 #define TOYLESS_USB_DESCRIPTORS_H
 
 #include <stdlib.h>
+#include <stdint.h>
 #include "tusb.h"
 
 // Аппаратные идентификаторы оригинальной базы Disney Infinity для Xbox 360
-#define PORTAL_USB_VID  0x24C6 
+#define PORTAL_USB_VID  0x24C6  // PDP (Performance Designed Products)
 #define PORTAL_USB_PID  0xFA00
 #define PORTAL_USB_REV  0x0100
 
@@ -13,5 +14,7 @@
 #define EP_PORTAL_IN    0x81
 #define EP_PORTAL_OUT   0x02
 #define EP_PORTAL_SIZE  32
+
+void usb_descriptors_get_serial_bytes(uint8_t out[4]);
 
 #endif

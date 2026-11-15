@@ -47,11 +47,8 @@ static const uint8_t desc_configuration[] = {
     0x00, 0x00, 0x02, 0xFF, 0x5D, 0x01, 0x00,
 
     // Vendor Sub-Descriptor XInput (Type 0x21, 17 bytes)
-    0x11, 0x21, 0x10, 0x01, 0x24, 0x25,
-    EP_PORTAL_IN, 0x14,
-    0x03, 0x03, 0x03, 0x04, 0x13,
-    EP_PORTAL_OUT, 0x08,
-    0x03, 0x03,
+    0x11, 0x21, 0x10, 0x01, 0x21, 0x25, 0x81, 0x14,
+    0x00, 0x00, 0x00, 0x00, 0x13, 0x02, 0x08, 0x00, 0x00,
 
     // EP 0x81 IN (Interrupt, 32 bytes, 4 ms interval)
     0x07, TUSB_DESC_ENDPOINT, EP_PORTAL_IN, TUSB_XFER_INTERRUPT,
@@ -64,20 +61,20 @@ static const uint8_t desc_configuration[] = {
     0x09, TUSB_DESC_INTERFACE,
     0x01, 0x00, 0x04, 0xFF, 0x5D, 0x03, 0x00,
     // Audio Vendor Sub-Descriptor (Type 0x21, 27 bytes)
-    0x1B, 0x21, 0x00, 0x01, 0x01, 0x01, 0x83, 0x40, 0x01, 0x04,
+    0x1B, 0x21, 0x00, 0x01, 0x21, 0x01, 0x83, 0x20, 0x01, 0x04,
     0x20, 0x16, 0x85, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x16,
     0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     // 4 Audio Endpoints
     0x07, TUSB_DESC_ENDPOINT, 0x83, TUSB_XFER_INTERRUPT, U16_TO_U8S_LE(32), 0x02,
     0x07, TUSB_DESC_ENDPOINT, 0x04, TUSB_XFER_INTERRUPT, U16_TO_U8S_LE(32), 0x04,
-    0x07, TUSB_DESC_ENDPOINT, 0x85, TUSB_XFER_INTERRUPT, U16_TO_U8S_LE(32), 0x40,
+    0x07, TUSB_DESC_ENDPOINT, 0x85, TUSB_XFER_INTERRUPT, U16_TO_U8S_LE(32), 0x20,
     0x07, TUSB_DESC_ENDPOINT, 0x05, TUSB_XFER_INTERRUPT, U16_TO_U8S_LE(32), 0x10,
 
     // === Interface 2: Plugin Module (9 bytes) ===
     0x09, TUSB_DESC_INTERFACE,
     0x02, 0x00, 0x01, 0xFF, 0x5D, 0x02, 0x00,
     // Plugin Vendor Sub-Descriptor (Type 0x21, 9 bytes)
-    0x09, 0x21, 0x00, 0x01, 0x01, 0x22, 0x86, 0x07, 0x00,
+    0x09, 0x21, 0x00, 0x01, 0x21, 0x22, 0x86, 0x07, 0x00,
     // EP 0x86 IN
     0x07, TUSB_DESC_ENDPOINT, 0x86, TUSB_XFER_INTERRUPT, U16_TO_U8S_LE(32), 0x10,
 
@@ -94,6 +91,13 @@ _Static_assert(sizeof(desc_configuration) == CONFIG_TOTAL_LEN,
 uint8_t const *tud_descriptor_configuration_cb(uint8_t index) {
     (void)index;
     return desc_configuration;
+}
+
+void usb_descriptors_get_serial_bytes(uint8_t out[4]) {
+    if (!out) return;
+    pico_unique_board_id_t id;
+    pico_get_unique_board_id(&id);
+    memcpy(out, id.id, 4);
 }
 
 // ---------------------------------------------------------------------------
@@ -115,14 +119,13 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
         desc_str_buf[1] = 0x0409; // English (United States)
         len = 1;
     } else if (index == 3) {
-        // Serial number derived from unique RP2040 chip ID
-        pico_unique_board_id_t id;
-        pico_get_unique_board_id(&id);
-        char serial[17];
-        for (int i = 0; i < 8; i++) {
-            snprintf(serial + (i * 2), 3, "%02X", id.id[i]);
-        }
-        for (len = 0; len < 16; len++) {
+        // Serial number: 8-character uppercase hex string derived from unique RP2040 chip ID
+        uint8_t serial_bytes[4];
+        usb_descriptors_get_serial_bytes(serial_bytes);
+        char serial[9];
+        snprintf(serial, sizeof(serial), "%02X%02X%02X%02X",
+                 serial_bytes[0], serial_bytes[1], serial_bytes[2], serial_bytes[3]);
+        for (len = 0; len < 8; len++) {
             desc_str_buf[1 + len] = (uint16_t)serial[len];
         }
     } else if (index == 4) {
