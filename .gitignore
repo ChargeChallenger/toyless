@@ -9,3 +9,5 @@ build/
 *.dis
 
 ./vscode/*
+# Local developer tools
+tools/
