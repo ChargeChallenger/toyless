@@ -106,9 +106,7 @@ minicom -D /dev/ttyACM0 -b 115200
     * Базируется на исследованиях архитектуры XSM3 от **[oct0xor](https://github.com/oct0xor)** и **[sanjay900](https://github.com/sanjay900)**.
 
 ### Исследования и референсные проекты
-
-### Исследования и референсные проекты (References)
     
 * **[Dolphin Emulator](https://github.com/dolphin-emu/dolphin)** (GPLv2+) - эталонная документация и реализация протокола команд базы Disney Infinity.
 * **[Santroller](https://github.com/santroller/santroller)** (GPLv3) от **sanjay900** - референсная реализация интеграции XSM3 и XInput под микроконтроллер RP2040.
-* **[portal_of_flipper](https://github.com/sanjay900/portal_of_flipper)** (GPLv3) — пример организации 4 интерфейсов XInput и обёртки USB-пакетов под Xbox 360.
+* **[portal_of_flipper](https://github.com/sanjay900/portal_of_flipper)** (GPLv3) - пример организации 4 интерфейсов XInput и обёртки USB-пакетов под Xbox 360.
