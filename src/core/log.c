@@ -25,13 +25,14 @@ void log_printf(const char *fmt, ...) {
     if (len <= 0) return;
 
     uint32_t save = spin_lock_blocking(log_spinlock);
+    uint16_t cur_head = head;
     for (int i = 0; i < len; i++) {
-        uint16_t next = (head + 1) % LOG_BUFFER_SIZE;
+        uint16_t next = (cur_head + 1) % LOG_BUFFER_SIZE;
         if (next == tail) break;
-        log_buffer[head] = buf[i];
-        head = next;
+        log_buffer[cur_head] = buf[i];
+        cur_head = next;
     }
-
+    head = cur_head;
     spin_unlock(log_spinlock, save);
 }
 
