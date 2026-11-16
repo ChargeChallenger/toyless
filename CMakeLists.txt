@@ -22,12 +22,14 @@ add_executable(toyless
     src/auth/xsm3_service.c
     src/usb/usb_descriptors.c
     src/usb/usb_transport.c
+    src/protocol/infinity_prng.c
 )
 
 target_include_directories(toyless PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/src
     ${CMAKE_CURRENT_LIST_DIR}/src/usb
     ${CMAKE_CURRENT_LIST_DIR}/src/auth
+    ${CMAKE_CURRENT_LIST_DIR}/src/protocol
 )
 
 target_link_libraries(toyless
