@@ -1,7 +1,10 @@
 #include <string.h>
+#include "pico/stdlib.h"
 #include "usb_transport.h"
 #include "usb_descriptors.h"
 #include "auth/xsm3_service.h"
+#include "protocol/infinity_protocol.h"
+#include "protocol/infinity_engine.h"
 #include "core/log.h"
 #include "tusb.h"
 #include "device/usbd_pvt.h"
@@ -21,6 +24,38 @@ static void tx_pump(uint8_t rhport) {
     if (tx_in_flight || tx_head == tx_tail) return;
     tx_in_flight = true;
     usbd_edpt_xfer(rhport, EP_PORTAL_IN, tx_fifo[tx_head], EP_PORTAL_SIZE);
+}
+
+static uint32_t notif_pending_since_ms = 0;
+
+static void check_proactive_notifications(void) {
+    if (!infinity_notification_pending()) {
+        notif_pending_since_ms = 0;
+        return;
+    }
+
+    uint32_t now = to_ms_since_boot(get_absolute_time());
+    if (notif_pending_since_ms == 0) {
+        notif_pending_since_ms = now;
+        return;
+    }
+
+    // Host has not polled for >300ms -> proactively push notifications
+    if ((now - notif_pending_since_ms) < 300) return;
+
+    // Do not pop if the TX FIFO is full
+    if (((tx_tail + 1) % TX_FIFO_SIZE) == tx_head) return;
+
+    uint8_t pkt[EP_PORTAL_SIZE];
+    memset(pkt, 0, sizeof(pkt));
+    int len = infinity_pop_notification(pkt + 2);
+    if (len > 0) {
+        pkt[0] = INFINITY_WRAPPER_BYTE0;
+        pkt[1] = INFINITY_WRAPPER_BYTE1;
+        if (usb_transport_send(pkt)) {
+            notif_pending_since_ms = 0;
+        }
+    }
 }
 
 bool usb_transport_send(const uint8_t *packet32) {
@@ -43,6 +78,7 @@ static void xinput_init(void) {}
 static void xinput_reset(uint8_t rhport) {
     (void)rhport;
     xsm3_service_init();
+    notif_pending_since_ms = 0;
 }
 
 static uint16_t xinput_open(uint8_t rhport, tusb_desc_interface_t const *desc_intf, uint16_t max_len) {
@@ -96,12 +132,27 @@ static bool xinput_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t result
 
     if (ep_addr == EP_PORTAL_OUT) {
         // Verify Disney Infinity packet wrapper on Xbox 360 (0x0B 0x15)
-        if (xferred_bytes >= 3 && rx_buf[0] == 0x0B && rx_buf[1] == 0x15) {
-            const uint8_t *cmd = rx_buf + 2;
-            log_printf("[USB OUT] Command received: 0x%02X (seq 0x%02X)\n", cmd[2], cmd[3]);
+        if (xferred_bytes >= 3 && rx_buf[0] == INFINITY_WRAPPER_BYTE0 && rx_buf[1] == INFINITY_WRAPPER_BYTE1) {
+            const uint8_t *pkt = rx_buf + 2;
+            uint8_t resp[EP_PORTAL_SIZE] = {0};
+            int len = 0;
+
+            if (pkt[0] == INFINITY_PREFIX_CMD) {
+                // Game command 
+                len = infinity_process_command(pkt, resp + 2);
+            } else {
+                // Host polling 
+                len = infinity_pop_notification(resp + 2);
+            }
+
+            if (len > 0) {
+                resp[0] = INFINITY_WRAPPER_BYTE0;
+                resp[1] = INFINITY_WRAPPER_BYTE1;
+                usb_transport_send(resp);
+            }
         }
 
-        // Wait for next command from host
+        // wait for next command from host
         usbd_edpt_xfer(rhport, EP_PORTAL_OUT, rx_buf, EP_PORTAL_SIZE);
     }
     return true;
@@ -127,4 +178,5 @@ void usb_transport_init(void) {
 
 void usb_transport_task(void) {
     tud_task();
+    check_proactive_notifications();
 }
