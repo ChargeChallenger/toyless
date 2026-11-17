@@ -23,6 +23,7 @@ add_executable(toyless
     src/usb/usb_descriptors.c
     src/usb/usb_transport.c
     src/protocol/infinity_prng.c
+    src/protocol/infinity_engine.c
 )
 
 target_include_directories(toyless PRIVATE
