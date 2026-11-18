@@ -3,6 +3,7 @@
 #include "log.h"
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
+#include "storage/lfs_port.h"
 
 void core1_entry(void)
 {
@@ -17,6 +18,9 @@ void core1_entry(void)
     {
         log_printf("[Core 1] Failed to initialize CYW43\n");
     }
+
+    // Initialize LittleFS storage on Core 1
+    lfs_port_init();
 
     uint32_t last_heartbeat = 0;
 

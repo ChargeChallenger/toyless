@@ -24,6 +24,9 @@ add_executable(toyless
     src/usb/usb_transport.c
     src/protocol/infinity_prng.c
     src/protocol/infinity_engine.c
+    src/storage/lfs_port.c
+    lib/littlefs/lfs.c
+    lib/littlefs/lfs_util.c
 )
 
 target_include_directories(toyless PRIVATE
@@ -31,6 +34,8 @@ target_include_directories(toyless PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/src/usb
     ${CMAKE_CURRENT_LIST_DIR}/src/auth
     ${CMAKE_CURRENT_LIST_DIR}/src/protocol
+    ${CMAKE_CURRENT_LIST_DIR}/src/storage
+    ${CMAKE_CURRENT_LIST_DIR}/lib/littlefs
 )
 
 target_link_libraries(toyless
@@ -42,6 +47,8 @@ target_link_libraries(toyless
     libxsm3
     tinyusb_device
     pico_cyw43_arch_none
+    hardware_flash
+    hardware_sync
 )
 
 pico_enable_stdio_uart(toyless 1)
