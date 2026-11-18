@@ -26,6 +26,7 @@ add_executable(toyless
     src/protocol/infinity_engine.c
     src/storage/lfs_port.c
     src/storage/figure_synthesizer.c
+    src/storage/storage_manager.c
     lib/tiny-aes/aes.c
     lib/littlefs/lfs.c
     lib/littlefs/lfs_util.c

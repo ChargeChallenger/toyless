@@ -7,20 +7,112 @@
 #include <assert.h>
 
 #include "storage/figure_synthesizer.h"
+#include "storage/storage_manager.h"
 #include "storage/lfs_port.h"
+#include "core/icc.h"
+#include "protocol/infinity_engine.h"
+#include "bd/lfs_rambd.h"
 
-// Stubs for host testing
+// Stubs and host logging
 void log_printf(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    vprintf(fmt, args);
+    (void)args;
+    (void)fmt;
     va_end(args);
 }
 
+// Host ICC queue stubs
+static portal_cmd_t s_host_cmd_queue[8];
+static int s_host_cmd_head = 0;
+static int s_host_cmd_tail = 0;
+
+void icc_init(void)
+{
+    s_host_cmd_head = 0;
+    s_host_cmd_tail = 0;
+}
+
+bool icc_send_cmd(const portal_cmd_t *cmd)
+{
+    int next = (s_host_cmd_head + 1) % 8;
+    if (next == s_host_cmd_tail) return false;
+    s_host_cmd_queue[s_host_cmd_head] = *cmd;
+    s_host_cmd_head = next;
+    return true;
+}
+
+bool icc_poll_cmd(portal_cmd_t *out_cmd)
+{
+    if (s_host_cmd_head == s_host_cmd_tail) return false;
+    *out_cmd = s_host_cmd_queue[s_host_cmd_tail];
+    s_host_cmd_tail = (s_host_cmd_tail + 1) % 8;
+    return true;
+}
+
+bool icc_send_event(const portal_event_t *evt)
+{
+    (void)evt;
+    return true;
+}
+
+bool icc_poll_event(portal_event_t *out_evt)
+{
+    (void)out_evt;
+    return false;
+}
+
+// In-memory LittleFS for host test suite
+static lfs_t s_host_lfs;
+static struct lfs_config s_host_lfs_cfg;
+static lfs_rambd_t s_rambd;
+static struct lfs_rambd_config s_rambd_cfg;
+static uint8_t s_rambd_buffer[128 * 1024]; // 128 KB RAM buffer
+
 lfs_t *lfs_port_get_fs(void)
 {
-    return NULL;
+    return &s_host_lfs;
+}
+
+int lfs_port_init(void)
+{
+    return 0; // Handled by test setup
+}
+
+static void setup_host_littlefs(void)
+{
+    memset(&s_rambd_cfg, 0, sizeof(s_rambd_cfg));
+    s_rambd_cfg.read_size = 16;
+    s_rambd_cfg.prog_size = 16;
+    s_rambd_cfg.erase_size = 512;
+    s_rambd_cfg.erase_count = sizeof(s_rambd_buffer) / 512;
+    s_rambd_cfg.buffer = s_rambd_buffer;
+
+    memset(&s_host_lfs_cfg, 0, sizeof(s_host_lfs_cfg));
+    s_host_lfs_cfg.context = &s_rambd;
+    s_host_lfs_cfg.read = lfs_rambd_read;
+    s_host_lfs_cfg.prog = lfs_rambd_prog;
+    s_host_lfs_cfg.erase = lfs_rambd_erase;
+    s_host_lfs_cfg.sync = lfs_rambd_sync;
+
+    s_host_lfs_cfg.read_size = 16;
+    s_host_lfs_cfg.prog_size = 16;
+    s_host_lfs_cfg.block_size = 512;
+    s_host_lfs_cfg.block_count = sizeof(s_rambd_buffer) / 512;
+    s_host_lfs_cfg.cache_size = 64;
+    s_host_lfs_cfg.lookahead_size = 16;
+    s_host_lfs_cfg.block_cycles = 500;
+
+    int err = lfs_rambd_create(&s_host_lfs_cfg, &s_rambd_cfg);
+    assert(err == 0);
+    err = lfs_format(&s_host_lfs, &s_host_lfs_cfg);
+    assert(err == 0);
+    err = lfs_mount(&s_host_lfs, &s_host_lfs_cfg);
+    assert(err == 0);
+
+    lfs_mkdir(&s_host_lfs, "/figures");
+    lfs_mkdir(&s_host_lfs, "/saves");
 }
 
 // ANSI colors for test reporting
@@ -136,16 +228,67 @@ static void test_real_dump_compatibility(void)
     TEST_ASSERT(extracted_id == 0x0F42A6, "Official Iron Man dump verified (Toy ID 0x0F42A6)");
 }
 
+// Test 5: Storage manager with LittleFS operations
+static void test_storage_manager(void)
+{
+    printf(COLOR_CYAN "Running test_storage_manager...\n" COLOR_RESET);
+
+    // 1. Synthesize figure directly into LittleFS
+    bool ok = figure_synthesizer_save_file("/figures/iron_man.bin", 0x0F42A6, NULL);
+    TEST_ASSERT(ok, "figure_synthesizer_save_file succeeded in LittleFS");
+
+    // 2. Initialize storage manager (clean empty base)
+    int init_res = storage_manager_init();
+    TEST_ASSERT(init_res == 0, "storage_manager_init succeeded");
+    TEST_ASSERT(strcmp(storage_manager_get_slot_path(3), "") == 0, "Slot 3 starts empty");
+
+    // 3. Set figure on Slot 3 (Player 1)
+    ok = storage_manager_set_slot_figure(3, "/figures/iron_man.bin");
+    TEST_ASSERT(ok, "storage_manager_set_slot_figure succeeded");
+    TEST_ASSERT(strcmp(storage_manager_get_slot_path(3), "/figures/iron_man.bin") == 0,
+                "Slot 3 path is /figures/iron_man.bin");
+
+    // Verify ICC received command to place figure on Core 0
+    portal_cmd_t cmd;
+    ok = icc_poll_cmd(&cmd);
+    TEST_ASSERT(ok && cmd.type == PORTAL_CMD_SET_FIGURE && cmd.slot == 3,
+                "ICC received PORTAL_CMD_SET_FIGURE for slot 3");
+
+    // Core 0 loads figure into protocol engine
+    infinity_load_figure(cmd.slot, cmd.figure_data);
+    TEST_ASSERT(infinity_slot_present(3), "Figure is present in infinity engine slot 3");
+
+    // 4. Test debounce write back: simulate game modifying figure
+    storage_manager_mark_dirty(3);
+
+    // Run task to flush debounce
+    storage_manager_task();
+
+    // 5. Clear figure from Slot 3
+    ok = storage_manager_clear_slot(3);
+    TEST_ASSERT(ok, "storage_manager_clear_slot succeeded");
+    TEST_ASSERT(strcmp(storage_manager_get_slot_path(3), "") == 0, "Slot 3 is now empty");
+
+    ok = icc_poll_cmd(&cmd);
+    TEST_ASSERT(ok && cmd.type == PORTAL_CMD_REMOVE_FIGURE && cmd.slot == 3,
+                "ICC received PORTAL_CMD_REMOVE_FIGURE for slot 3");
+}
+
 int main(void)
 {
     printf("\n=========================================\n");
-    printf("   Toyless Figure Synthesizer Test Suite\n");
+    printf("   Toyless Storage & Synthesizer Suite   \n");
     printf("=========================================\n\n");
+
+    icc_init();
+    infinity_engine_init();
+    setup_host_littlefs();
 
     test_synthesis_roundtrip();
     test_custom_uid();
     test_tamper_detection();
     test_real_dump_compatibility();
+    test_storage_manager();
 
     printf("\n-----------------------------------------\n");
     printf("Results: %d/%d tests passed\n", s_tests_passed, s_tests_run);
