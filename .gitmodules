@@ -4,3 +4,6 @@
 [submodule "lib/littlefs"]
 	path = lib/littlefs
 	url = https://github.com/littlefs-project/littlefs.git
+[submodule "lib/tiny-aes"]
+	path = lib/tiny-aes
+	url = https://github.com/kokke/tiny-AES-c.git

@@ -25,6 +25,8 @@ add_executable(toyless
     src/protocol/infinity_prng.c
     src/protocol/infinity_engine.c
     src/storage/lfs_port.c
+    src/storage/figure_synthesizer.c
+    lib/tiny-aes/aes.c
     lib/littlefs/lfs.c
     lib/littlefs/lfs_util.c
 )
@@ -36,6 +38,8 @@ target_include_directories(toyless PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/src/protocol
     ${CMAKE_CURRENT_LIST_DIR}/src/storage
     ${CMAKE_CURRENT_LIST_DIR}/lib/littlefs
+    ${CMAKE_CURRENT_LIST_DIR}/lib/tiny-aes
+    ${CMAKE_CURRENT_LIST_DIR}/lib/libxsm3
 )
 
 target_link_libraries(toyless
