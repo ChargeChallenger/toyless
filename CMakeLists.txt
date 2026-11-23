@@ -27,6 +27,9 @@ add_executable(toyless
     src/storage/lfs_port.c
     src/storage/figure_synthesizer.c
     src/storage/storage_manager.c
+    src/net/dhcpserver.c
+    src/net/dnsserver.c
+    src/net/wifi_manager.c
     lib/tiny-aes/aes.c
     lib/littlefs/lfs.c
     lib/littlefs/lfs_util.c
@@ -38,6 +41,7 @@ target_include_directories(toyless PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/src/auth
     ${CMAKE_CURRENT_LIST_DIR}/src/protocol
     ${CMAKE_CURRENT_LIST_DIR}/src/storage
+    ${CMAKE_CURRENT_LIST_DIR}/src/net
     ${CMAKE_CURRENT_LIST_DIR}/lib/littlefs
     ${CMAKE_CURRENT_LIST_DIR}/lib/tiny-aes
     ${CMAKE_CURRENT_LIST_DIR}/lib/libxsm3
@@ -51,7 +55,7 @@ target_link_libraries(toyless
     pico_rand
     libxsm3
     tinyusb_device
-    pico_cyw43_arch_none
+    pico_cyw43_arch_lwip_poll
     hardware_flash
     hardware_sync
 )
