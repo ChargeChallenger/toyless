@@ -1,6 +1,9 @@
 #include "web/web_server.h"
 #include "web/web_page.h"
 #include "storage/storage_manager.h"
+#include "storage/figure_db.h"
+#include "storage/figure_synthesizer.h"
+#include "storage/lfs_port.h"
 #include "net/wifi_manager.h"
 #include "core/log.h"
 #include "pico/stdlib.h"
@@ -165,12 +168,30 @@ static void api_status_get(http_conn_t *c)
     {
         const char *path = storage_manager_get_slot_path(s);
         bool active = (path && path[0] != '\0');
+        const char *fig_name = "";
+        uint32_t toy_id = 0;
+
+        if (active)
+        {
+            // Извлекаем hex ID из пути вида "/figures/0F42A6.bin"
+            const char *fn = strrchr(path, '/');
+            fn = fn ? fn + 1 : path;
+            toy_id = (uint32_t)strtoul(fn, NULL, 16);
+            const figure_db_entry_t *entry = figure_db_find_by_id(toy_id);
+            if (entry)
+            {
+                fig_name = entry->name;
+            }
+        }
+
         n += snprintf(c->small_body + n, sizeof(c->small_body) - n,
-                      "%s{\"slot\":%u,\"active\":%s,\"path\":\"%s\"}",
+                      "%s{\"slot\":%u,\"active\":%s,\"path\":\"%s\",\"toy_id\":%lu,\"name\":\"%s\"}",
                       s ? "," : "",
                       s,
                       active ? "true" : "false",
-                      active ? path : "");
+                      active ? path : "",
+                      (unsigned long)toy_id,
+                      fig_name);
     }
     n += snprintf(c->small_body + n, sizeof(c->small_body) - n, "]}");
     http_respond(c, 200, "OK", "application/json", NULL, c->small_body, (uint32_t)n);
@@ -198,8 +219,33 @@ static void api_slot_post(http_conn_t *c, const char *body)
     }
     else
     {
+        const char *pt = strstr(body, "\"toy_id\":");
         const char *pp = strstr(body, "\"path\":\"");
-        if (pp)
+
+        if (pt)
+        {
+            uint32_t toy_id = (uint32_t)strtoul(pt + 9, NULL, 0);
+            const figure_db_entry_t *entry = figure_db_find_by_id(toy_id);
+            if (!entry)
+            {
+                http_respond_400(c);
+                return;
+            }
+
+            char path[STORAGE_MAX_PATH_LEN];
+            snprintf(path, sizeof(path), "/figures/%06lX.bin", (unsigned long)toy_id);
+
+            // Создаем дамп в LittleFS через синтезатор, если файл еще не создан
+            lfs_t *lfs = lfs_port_get_fs();
+            struct lfs_info info;
+            if (lfs && lfs_stat(lfs, path, &info) != LFS_ERR_OK)
+            {
+                figure_synthesizer_save_file(path, toy_id, NULL);
+            }
+
+            storage_manager_set_slot_figure((uint8_t)slot, path);
+        }
+        else if (pp)
         {
             char path[STORAGE_MAX_PATH_LEN];
             pp += 8;
@@ -291,6 +337,12 @@ static void http_route(http_conn_t *c, const char *method, const char *path, con
         if (strcmp(path, "/api/status") == 0)
         {
             api_status_get(c);
+            return;
+        }
+        if (strcmp(path, "/api/catalog") == 0)
+        {
+            http_respond(c, 200, "OK", "application/json", "gzip",
+                         figure_db_catalog_gz, figure_db_catalog_gz_len);
             return;
         }
         if (strcmp(path, "/api/ping") == 0)
