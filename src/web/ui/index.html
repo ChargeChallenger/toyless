@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>toyless</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --card-bg: #1e1e1e;
+            --accent: #00e5ff;
+            --accent-dim: #0d3349;
+            --border: #333;
+            --text: #eee;
+            --text-dim: #888;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: var(--bg-color);
+            color: var(--text);
+            text-align: center;
+            padding: 16px;
+            margin: 0;
+        }
+
+        h1 {
+            color: var(--accent);
+            margin: 8px 0 4px 0;
+            letter-spacing: 1px;
+        }
+
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 13px;
+            margin-top: 0;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 16px;
+            max-width: 460px;
+            margin: 0 auto 16px auto;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+        }
+
+        #info {
+            color: var(--text-dim);
+            font-size: 13px;
+            margin: 8px 0;
+        }
+
+        .slot-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .slot {
+            background: #252525;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 4px;
+            font-size: 12px;
+            min-height: 56px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        .slot.active {
+            border-color: var(--accent);
+            background: var(--accent-dim);
+            box-shadow: 0 0 8px rgba(0, 229, 255, 0.25);
+        }
+
+        .slot-num {
+            font-weight: bold;
+            color: var(--text-dim);
+            margin-bottom: 4px;
+        }
+
+        .slot-name {
+            color: #fff;
+            word-break: break-all;
+            font-size: 11px;
+        }
+
+        button {
+            background: var(--accent);
+            border: none;
+            border-radius: 6px;
+            color: #000;
+            padding: 10px 20px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 16px;
+        }
+
+        button:active {
+            opacity: 0.7;
+        }
+    </style>
+
+</head>
+
+<body>
+    <div class="card">
+        <h1>toyless</h1>
+        <p class="subtitle">Disney Infinity Portal Emulator (Xbox 360)</p>
+        <div id="info">Подключение к базе...</div>
+
+        <div class="slot-grid" id="slots"></div>
+
+        <button onclick="refresh()">Обновить статус</button>
+    </div>
+
+    <script>
+        async function refresh() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+
+                const statusEl = document.getElementById('info');
+                const mode = data.wifi_connected ? 'Подключено' : 'SoftAP (192.168.4.1)';
+                const uptime = (data.uptime_ms / 1000).toFixed(0);
+                statusEl.innerText = `Режим: ${mode} | Аптайм: ${uptime}с`;
+
+                const container = document.getElementById('slots');
+                container.innerHTML = data.slots.map(s => {
+                    const name = s.active ? s.path.split('/').pop().replace('.bin', '') : '(Пусто)';
+                    return `
+                            <div class="slot ${s.active ? 'active' : ''}">
+                                <span class="slot-num">Слот ${s.slot}</span>
+                                <span class="slot-name">${name}</span>
+                            </div>
+                        `;
+                }).join('');
+            } catch (e) {
+                document.getElementById('info').innerText = 'Ошибка связи с базой';
+            }
+        }
+        refresh();
+        setInterval(refresh, 3000);
+    </script>
+</body>
+
+</html>

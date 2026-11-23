@@ -2,6 +2,7 @@
 #include "dhcpserver.h"
 #include "dnsserver.h"
 #include "core/log.h"
+#include "web/web_server.h"
 #include "storage/lfs_port.h"
 #include "pico/cyw43_arch.h"
 #include "pico/time.h"
@@ -84,6 +85,7 @@ static void start_softap(void)
     s_state = WIFI_STATE_AP_ACTIVE;
 
     log_printf("[WiFi] SoftAP active! IP: %s, Captive Portal enabled\n", s_current_ip_str);
+    web_server_init();
 }
 
 void wifi_manager_init(void)
@@ -153,6 +155,7 @@ void wifi_manager_task(void)
                 snprintf(s_current_ip_str, sizeof(s_current_ip_str), "%d.%d.%d.%d",
                          ip4_addr1(&ip), ip4_addr2(&ip), ip4_addr3(&ip), ip4_addr4(&ip));
                 log_printf("[WiFi] Connected to %s! Assigned IP: %s\n", s_current_ssid, s_current_ip_str);
+                web_server_init();
             }
             else
             {

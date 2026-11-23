@@ -30,6 +30,7 @@ add_executable(toyless
     src/net/dhcpserver.c
     src/net/dnsserver.c
     src/net/wifi_manager.c
+    src/web/web_server.c
     lib/tiny-aes/aes.c
     lib/littlefs/lfs.c
     lib/littlefs/lfs_util.c
@@ -42,6 +43,7 @@ target_include_directories(toyless PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/src/protocol
     ${CMAKE_CURRENT_LIST_DIR}/src/storage
     ${CMAKE_CURRENT_LIST_DIR}/src/net
+    ${CMAKE_CURRENT_LIST_DIR}/src/web
     ${CMAKE_CURRENT_LIST_DIR}/lib/littlefs
     ${CMAKE_CURRENT_LIST_DIR}/lib/tiny-aes
     ${CMAKE_CURRENT_LIST_DIR}/lib/libxsm3
