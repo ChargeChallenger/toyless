@@ -117,18 +117,14 @@ int infinity_process_command(const uint8_t *pkt, uint8_t *out) {
     if (pkt[0] != INFINITY_PREFIX_CMD) return 0; // Must be 0xFF
 
     uint8_t len = pkt[1];
-    uint8_t seq = pkt[2];
-    uint8_t cmd = pkt[3];
+    uint8_t cmd = pkt[2];
+    uint8_t seq = pkt[3];
 
     switch (cmd) {
         case INFINITY_CMD_ACTIVATE: { // 0x80
             memcpy(out, INFINITY_WAKE_RESPONSE, sizeof(INFINITY_WAKE_RESPONSE));
-            // Queue notifications for any figures already present on the base
-            for (uint8_t i = 0; i < INFINITY_NUM_SLOTS; i++) {
-                if (s_slots[i].present) {
-                    enqueue_notification(slot_to_pad_id(i), s_slots[i].order_added, INFINITY_EVENT_ADDED);
-                }
-            }
+            out[2] = seq;
+            out[23] = infinity_checksum(out, 23);
             return sizeof(INFINITY_WAKE_RESPONSE);
         }
 

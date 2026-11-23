@@ -65,6 +65,9 @@ bool xsm3_service_is_authenticated(void) {
 
 bool xsm3_service_handle_control_xfer(uint8_t rhport, uint8_t stage, tusb_control_request_t const *request) {
     if (stage == CONTROL_STAGE_SETUP) {
+        log_printf("[XSM3-CTRL] req=0x%02X bmType=0x%02X wVal=0x%04X wIdx=0x%04X wLen=%u\n",
+                   request->bRequest, request->bmRequestType, request->wValue, request->wIndex, request->wLength);
+
         // 1. GET_REPORT (0x01)
         if (request->bRequest == 0x01) {
             if (request->bmRequestType == 0xC0 && request->wValue == 0x0000) {
@@ -86,13 +89,19 @@ bool xsm3_service_handle_control_xfer(uint8_t rhport, uint8_t stage, tusb_contro
                 s_authenticated = false;
                 xsm3_initialise_state();
                 xsm3_set_identification_data(xsm3_id_data_ms_controller);
+                log_printf("[XSM3] Sending 0x81 Identification\n");
                 return tud_control_xfer(rhport, request, (void *)xsm3_id_data_ms_controller, sizeof(xsm3_id_data_ms_controller));
 
             case 0x82: // OUT: Challenge init (34 bytes from host)
-                if (request->wLength != 0x22) return false;
+                if (request->wLength != 0x22) {
+                    log_printf("[XSM3] 0x82 unexpected wLength: %u\n", request->wLength);
+                    return false;
+                }
+                log_printf("[XSM3] Receiving 0x82 Challenge init\n");
                 return tud_control_xfer(rhport, request, xsm3_rx_buf, sizeof(xsm3_rx_buf));
 
             case 0x83: // IN: Challenge response (48 bytes)
+                log_printf("[XSM3] Sending 0x83 Challenge response\n");
                 return tud_control_xfer(rhport, request, xsm3_challenge_response, sizeof(xsm3_challenge_response));
 
             case 0x84: // Status ACK without data
@@ -102,7 +111,11 @@ bool xsm3_service_handle_control_xfer(uint8_t rhport, uint8_t stage, tusb_contro
                 return tud_control_xfer(rhport, request, (void *)&xsm3_auth_state, sizeof(xsm3_auth_state));
 
             case 0x87: // OUT: Challenge verify (22 bytes from host)
-                if (request->wLength != 0x16) return false;
+                if (request->wLength != 0x16) {
+                    log_printf("[XSM3] 0x87 unexpected wLength: %u\n", request->wLength);
+                    return false;
+                }
+                log_printf("[XSM3] Receiving 0x87 Challenge verify\n");
                 return tud_control_xfer(rhport, request, xsm3_rx_buf, sizeof(xsm3_rx_buf));
 
             case 0x00: // LED / vibration output report ACK
@@ -113,6 +126,7 @@ bool xsm3_service_handle_control_xfer(uint8_t rhport, uint8_t stage, tusb_contro
                 return tud_control_status(rhport, request);
 
             default:
+                log_printf("[XSM3] Unhandled vendor request: 0x%02X\n", request->bRequest);
                 return false;
         }
     } else if (stage == CONTROL_STAGE_DATA) {

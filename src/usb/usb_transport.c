@@ -110,8 +110,8 @@ static uint16_t xinput_open(uint8_t rhport, tusb_desc_interface_t const *desc_in
 
 static bool xinput_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const *request) {
     (void)rhport;
-    (void)stage;
-    (void)request;
+    log_printf("[XINPUT-CTRL] stage=%d req=0x%02X type=0x%02X val=0x%04X idx=0x%04X len=%u\n",
+               stage, request->bRequest, request->bmRequestType, request->wValue, request->wIndex, request->wLength);
     return false;
 }
 
@@ -131,6 +131,13 @@ static bool xinput_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t result
     }
 
     if (ep_addr == EP_PORTAL_OUT) {
+        log_printf("[PORTAL-OUT] %lu bytes: %02X %02X %02X %02X\n",
+                   (unsigned long)xferred_bytes,
+                   xferred_bytes > 0 ? rx_buf[0] : 0,
+                   xferred_bytes > 1 ? rx_buf[1] : 0,
+                   xferred_bytes > 2 ? rx_buf[2] : 0,
+                   xferred_bytes > 3 ? rx_buf[3] : 0);
+
         // Verify Disney Infinity packet wrapper on Xbox 360 (0x0B 0x15)
         if (xferred_bytes >= 3 && rx_buf[0] == INFINITY_WRAPPER_BYTE0 && rx_buf[1] == INFINITY_WRAPPER_BYTE1) {
             const uint8_t *pkt = rx_buf + 2;
@@ -139,6 +146,7 @@ static bool xinput_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t result
 
             if (pkt[0] == INFINITY_PREFIX_CMD) {
                 // Game command 
+                log_printf("[PORTAL] Game command 0x%02X (seq %d)\n", pkt[2], pkt[3]);
                 len = infinity_process_command(pkt, resp + 2);
             } else {
                 // Host polling 
@@ -148,8 +156,12 @@ static bool xinput_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t result
             if (len > 0) {
                 resp[0] = INFINITY_WRAPPER_BYTE0;
                 resp[1] = INFINITY_WRAPPER_BYTE1;
+                log_printf("[PORTAL] Sending resp len=%d (type 0x%02X)\n", len, resp[2]);
                 usb_transport_send(resp);
             }
+        }
+        else if (xferred_bytes > 0) {
+            log_printf("[PORTAL-OUT] Unexpected wrapper: %02X %02X\n", rx_buf[0], rx_buf[1]);
         }
 
         // wait for next command from host

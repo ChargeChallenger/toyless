@@ -26,7 +26,10 @@ void core1_entry(void)
         // Wi-Fi state machine task
         wifi_manager_task();
 
-        cyw43_arch_poll();
+        if (wifi_manager_get_status().mode != WIFI_MODE_NONE)
+        {
+            cyw43_arch_poll();
+        }
 
         portal_event_t evt;
         if (icc_poll_event(&evt))
@@ -43,15 +46,19 @@ void core1_entry(void)
             }
         }
 
-        // Heartbeat LED blink every 1 second
+        // Heartbeat log and LED every 1 second
         uint32_t now = to_ms_since_boot(get_absolute_time());
         if (now - last_heartbeat >= 1000)
         {
             last_heartbeat = now;
-            if (wifi_manager_get_status().is_connected)
+            if (wifi_manager_get_status().mode != WIFI_MODE_NONE)
             {
                 static bool led = false;
                 cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, (led = !led));
+            }
+            else
+            {
+                log_printf("[Core 1] Heartbeat: waiting for Wi-Fi activation (uptime %lu ms)...\n", (unsigned long)now);
             }
         }
 
