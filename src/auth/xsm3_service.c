@@ -52,11 +52,47 @@ static uint8_t xsm3_rx_buf[64] __attribute__((aligned(4)));
 
 static volatile bool s_authenticated = false;
 
+// Buffer for dynamic identification data matching PORTAL_USB_VID and PORTAL_USB_PID (29 bytes)
+static uint8_t s_xsm3_id_data[0x1D] __attribute__((aligned(4))) = {
+    0x49, 0x4B, 0x00, 0x00, 0x17, 0x41, 0x41, 0x41,
+    0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41, 0x41,
+    0x00, 0x00, 0x80, 0x02,
+    (uint8_t)(PORTAL_USB_VID & 0xFF), (uint8_t)((PORTAL_USB_VID >> 8) & 0xFF),
+    (uint8_t)(PORTAL_USB_PID & 0xFF), (uint8_t)((PORTAL_USB_PID >> 8) & 0xFF),
+    0x03, 0x00, 0x01, 0x01,
+    0x00 // checksum placeholder
+};
+
+static void init_xsm3_id_data(void) {
+    uint8_t serial_bytes[4];
+    usb_descriptors_get_serial_bytes(serial_bytes);
+    static const char hex_chars[] = "0123456789ABCDEF";
+    for (int i = 0; i < 4; i++) {
+        s_xsm3_id_data[5 + i * 2]     = hex_chars[(serial_bytes[i] >> 4) & 0x0F];
+        s_xsm3_id_data[5 + i * 2 + 1] = hex_chars[serial_bytes[i] & 0x0F];
+    }
+    for (int i = 8; i < 12; i++) {
+        s_xsm3_id_data[5 + i] = '0';
+    }
+
+    s_xsm3_id_data[20] = (uint8_t)(PORTAL_USB_VID & 0xFF);
+    s_xsm3_id_data[21] = (uint8_t)((PORTAL_USB_VID >> 8) & 0xFF);
+    s_xsm3_id_data[22] = (uint8_t)(PORTAL_USB_PID & 0xFF);
+    s_xsm3_id_data[23] = (uint8_t)((PORTAL_USB_PID >> 8) & 0xFF);
+
+    uint8_t checksum = 0;
+    for (int i = 5; i < 28; i++) {
+        checksum ^= s_xsm3_id_data[i];
+    }
+    s_xsm3_id_data[28] = checksum;
+}
+
 void xsm3_service_init(void) {
     s_authenticated = false;
+    init_xsm3_id_data();
     xsm3_initialise_state();
-    xsm3_set_identification_data(xsm3_id_data_ms_controller);
-    log_printf("[XSM3] Service initialized\n");
+    xsm3_set_identification_data(s_xsm3_id_data);
+    log_printf("[XSM3] Service initialized (VID=0x%04X PID=0x%04X)\n", PORTAL_USB_VID, PORTAL_USB_PID);
 }
 
 bool xsm3_service_is_authenticated(void) {
@@ -87,10 +123,12 @@ bool xsm3_service_handle_control_xfer(uint8_t rhport, uint8_t stage, tusb_contro
         switch (request->bRequest) {
             case 0x81: // IN: 29 bytes identification packet
                 s_authenticated = false;
+                init_xsm3_id_data();
                 xsm3_initialise_state();
-                xsm3_set_identification_data(xsm3_id_data_ms_controller);
-                log_printf("[XSM3] Sending 0x81 Identification\n");
-                return tud_control_xfer(rhport, request, (void *)xsm3_id_data_ms_controller, sizeof(xsm3_id_data_ms_controller));
+                xsm3_set_identification_data(s_xsm3_id_data);
+                log_printf("[XSM3] Sending 0x81 Identification (VID=0x%04X PID=0x%04X, cksum=0x%02X)\n",
+                           PORTAL_USB_VID, PORTAL_USB_PID, s_xsm3_id_data[28]);
+                return tud_control_xfer(rhport, request, (void *)s_xsm3_id_data, sizeof(s_xsm3_id_data));
 
             case 0x82: // OUT: Challenge init (34 bytes from host)
                 if (request->wLength != 0x22) {
